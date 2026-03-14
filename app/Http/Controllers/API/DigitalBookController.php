@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\DigitalBook;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
 
 class DigitalBookController extends Controller
 {
@@ -41,14 +42,31 @@ class DigitalBookController extends Controller
             'file'=>'required|file|mimes:pdf,epub|max:20480'
         ]);
 
-        $path = $request->file('file')->store('digital_books','public');
+        //$path = $request->file('file')->store('digital_books','public');
+        $upload = Cloudinary::uploadFile(
+            $request->file('file')->getRealPath(),
+            [
+                'folder' => 'digital_books',
+                'resource_type' => 'raw'
+            ]
+        );
 
+        $url = $upload->getSecurePath();
+
+        // $book = DigitalBook::create([
+        //     'title'=>$request->title,
+        //     'author'=>$request->author,
+        //     'category_id'=>$request->category_id,
+        //     'description'=>$request->description,
+        //     'file_path'=>$path,
+        //     'file_type'=>$request->file('file')->getClientOriginalExtension()
+        // ]);
         $book = DigitalBook::create([
             'title'=>$request->title,
             'author'=>$request->author,
             'category_id'=>$request->category_id,
             'description'=>$request->description,
-            'file_path'=>$path,
+            'file_path'=>$url,
             'file_type'=>$request->file('file')->getClientOriginalExtension()
         ]);
 
