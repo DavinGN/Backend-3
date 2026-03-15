@@ -123,6 +123,16 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
     });
 
+    Route::get('/test-fcm', function(){
+
+        \App\Services\FcmService::sendToTokens(
+            ['FCM_DEVICE_TOKEN'],
+            'Test Notification',
+            'Hello from Railway'
+        );
+
+    });
+    
     Route::post('/fcm-token', [FcmTokenController::class,'store']);
     Route::post('/fcm-token/deactivate', [FcmTokenController::class,'deactivate']);
 });
