@@ -13,6 +13,7 @@ use App\Http\Controllers\API\DigitalBookController;
 use App\Http\Controllers\API\UserController;
 use App\Http\Controllers\API\NotificationController;
 use App\Http\Controllers\API\DashboardController;
+use App\Http\Controllers\API\FcmTokenController;
 
 /*
 |--------------------------------------------------------------------------
@@ -122,4 +123,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
     });
 
+    Route::post('/fcm-token', [FcmTokenController::class,'store']);
+    Route::post('/fcm-token/deactivate', [FcmTokenController::class,'deactivate']);
 });
