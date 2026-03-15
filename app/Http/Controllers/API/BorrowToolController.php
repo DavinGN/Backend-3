@@ -8,6 +8,7 @@ use App\Models\Tool;
 use App\Models\User;
 use App\Models\Notification;
 use Illuminate\Http\Request;
+use App\Services\FcmService;
 
 class BorrowToolController extends Controller
 {
@@ -61,6 +62,11 @@ class BorrowToolController extends Controller
             ]);
         }
 
+        FcmService::sendToAdmins(
+            'Peminjaman Alat Baru',
+            'Ada peminjaman alat baru dari ' . auth()->user()->username
+        );
+
         return response()->json($borrow, 201);
     }
 
@@ -86,17 +92,22 @@ class BorrowToolController extends Controller
             ]);
         }
 
-        return response()->json([
-            'message' => 'Tool approved successfully'
-        ]);
-
         Notification::create([
             'user_id' => $borrow->user_id,
             'message' => 'Peminjaman alat disetujui',
             'is_read' => false
         ]);
-    }
 
+        FcmService::sendToUser(
+            $borrow->user_id,
+            'Peminjaman Alat Disetujui',
+            'Peminjaman alat Anda disetujui oleh admin'
+        );
+
+        return response()->json([
+            'message' => 'Tool approved successfully'
+        ]);
+    }
     // ================= REJECT =================
     public function reject($id)
     {
@@ -119,14 +130,20 @@ class BorrowToolController extends Controller
             ]);
         }
 
-        return response()->json([
-            'message' => 'Tool rejected successfully'
-        ]);
-
         Notification::create([
             'user_id' => $borrow->user_id,
-            'message' => 'Peminjaman buku ditolak',
+            'message' => 'Peminjaman alat ditolak',
             'is_read' => false
+        ]);
+
+        FcmService::sendToUser(
+            $borrow->user_id,
+            'Peminjaman Alat Ditolak',
+            'Peminjaman alat Anda ditolak oleh admin'
+        );
+
+        return response()->json([
+            'message' => 'Tool rejected successfully'
         ]);
     }
 

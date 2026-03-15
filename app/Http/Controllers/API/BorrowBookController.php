@@ -8,6 +8,7 @@ use App\Models\BorrowBook;
 use App\Models\User;
 use App\Models\Notification;
 use Illuminate\Http\Request;
+use App\Services\FcmService;
 
 class BorrowBookController extends Controller
 {
@@ -61,6 +62,11 @@ class BorrowBookController extends Controller
             ]);
         }
 
+        FcmService::sendToAdmins(
+            'Peminjaman Buku Baru',
+            'Ada peminjaman buku baru dari ' . auth()->user()->username
+        );
+
         return response()->json($borrow, 201);
     }
 
@@ -84,14 +90,20 @@ class BorrowBookController extends Controller
             'status' => 'dipinjam'
         ]);
 
-        return response()->json([
-            'message' => 'Approved successfully'
-        ]);
-
         Notification::create([
             'user_id' => $borrow->user_id,
             'message' => 'Peminjaman buku disetujui',
             'is_read' => false
+        ]);
+
+        FcmService::sendToUser(
+            $borrow->user_id,
+            'Peminjaman Buku Disetujui',
+            'Peminjaman buku Anda disetujui oleh admin'
+        );
+
+        return response()->json([
+            'message' => 'Approved successfully'
         ]);
     }
 
@@ -115,14 +127,20 @@ class BorrowBookController extends Controller
             'status' => 'tersedia'
         ]);
 
-        return response()->json([
-            'message' => 'Rejected successfully'
-        ]);
-
         Notification::create([
             'user_id' => $borrow->user_id,
             'message' => 'Peminjaman buku ditolak',
             'is_read' => false
+        ]);
+
+        FcmService::sendToUser(
+            $borrow->user_id,
+            'Peminjaman Buku Ditolak',
+            'Peminjaman buku Anda ditolak oleh admin'
+        );
+
+        return response()->json([
+            'message' => 'Rejected successfully'
         ]);
     }
 

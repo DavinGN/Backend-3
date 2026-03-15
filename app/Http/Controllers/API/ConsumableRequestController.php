@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ConsumableRequest;
 use App\Models\Consumable;
 use Illuminate\Http\Request;
+use App\Services\FcmService;
 
 class ConsumableRequestController extends Controller
 {
@@ -54,6 +55,11 @@ class ConsumableRequestController extends Controller
             ]);
         }
 
+        FcmService::sendToAdmins(
+            'Permintaan Barang Baru',
+            'Ada permintaan barang baru dari ' . auth()->user()->username
+        );
+
         return response()->json($requestData, 201);
     }
 
@@ -70,30 +76,33 @@ class ConsumableRequestController extends Controller
 
         $consumable = $requestData->consumable;
 
-        // CEK LAGI STOCK
         if ($consumable->stock < $requestData->quantity) {
             return response()->json([
                 'message' => 'Stock tidak cukup'
             ], 400);
         }
 
-        // KURANGI STOCK
         $consumable->decrement('stock', $requestData->quantity);
 
-        // UPDATE STATUS
         $requestData->update([
             'status' => 'approved',
             'verified_by' => auth()->id()
         ]);
 
-        return response()->json([
-            'message' => 'Request approved'
-        ]);
-
         Notification::create([
-            'user_id' => $borrow->user_id,
+            'user_id' => $requestData->user_id,
             'message' => 'Permintaan barang disetujui',
             'is_read' => false
+        ]);
+
+        FcmService::sendToUser(
+            $requestData->user_id,
+            'Permintaan Barang Disetujui',
+            'Permintaan barang Anda disetujui oleh admin'
+        );
+
+        return response()->json([
+            'message' => 'Request approved'
         ]);
     }
 
@@ -113,14 +122,20 @@ class ConsumableRequestController extends Controller
             'verified_by' => auth()->id()
         ]);
 
-        return response()->json([
-            'message' => 'Request rejected'
+        Notification::create([
+            'user_id' => $requestData->user_id,
+            'message' => 'Permintaan barang ditolak',
+            'is_read' => false
         ]);
 
-        Notification::create([
-            'user_id' => $borrow->user_id,
-            'message' => 'Peminjaman buku ditolak',
-            'is_read' => false
+        FcmService::sendToUser(
+            $requestData->user_id,
+            'Permintaan Barang Ditolak',
+            'Permintaan barang Anda ditolak oleh admin'
+        );
+
+        return response()->json([
+            'message' => 'Request rejected'
         ]);
     }
 }
