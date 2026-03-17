@@ -17,9 +17,10 @@ class CheckBorrowReminder extends Command
 
     public function handle()
     {
-        $today = Carbon::today()->toDateString();
-        $tomorrow = Carbon::tomorrow()->toDateString();
+        $today = Carbon::today();
+        $tomorrow = Carbon::tomorrow();
 
+        // ambil admin
         $admins = User::whereHas('role', fn($q) => $q->where('name','admin'))->get();
 
         /*
@@ -29,27 +30,25 @@ class CheckBorrowReminder extends Command
         */
 
         $books = BorrowBook::with(['user','book'])
-            ->where('status','approved')
+            ->whereIn('status',['approved','dipinjam'])
             ->get();
 
         foreach ($books as $b) {
 
+            $returnDate = Carbon::parse($b->return_date);
             $username = $b->user->username ?? 'User';
             $title = $b->book->title ?? 'Buku';
 
             // ================= H-1 =================
-            if ($b->return_date == $tomorrow) {
+            if ($returnDate->isSameDay($tomorrow)) {
 
-                $exists = Notification::where('user_id',$b->user_id)
-                    ->where('message',"Besok pengembalian buku \"$title\"")
-                    ->whereDate('created_at',$today)
-                    ->exists();
+                $message = "Besok pengembalian buku \"$title\"";
 
-                if (!$exists) {
+                if (!$this->alreadyNotified($b->user_id, $message)) {
 
                     Notification::create([
                         'user_id'=>$b->user_id,
-                        'message'=>"Besok pengembalian buku \"$title\"",
+                        'message'=>$message,
                         'is_read'=>false
                     ]);
 
@@ -62,18 +61,15 @@ class CheckBorrowReminder extends Command
             }
 
             // ================= HARI INI =================
-            if ($b->return_date == $today) {
+            if ($returnDate->isSameDay($today)) {
 
-                $exists = Notification::where('user_id',$b->user_id)
-                    ->where('message',"Hari ini batas pengembalian buku \"$title\"")
-                    ->whereDate('created_at',$today)
-                    ->exists();
+                $message = "Hari ini batas pengembalian buku \"$title\"";
 
-                if (!$exists) {
+                if (!$this->alreadyNotified($b->user_id, $message)) {
 
                     Notification::create([
                         'user_id'=>$b->user_id,
-                        'message'=>"Hari ini batas pengembalian buku \"$title\"",
+                        'message'=>$message,
                         'is_read'=>false
                     ]);
 
@@ -86,19 +82,16 @@ class CheckBorrowReminder extends Command
             }
 
             // ================= TERLAMBAT =================
-            if ($b->return_date < $today) {
+            if ($returnDate->lt($today)) {
 
-                // USER
-                $existsUser = Notification::where('user_id',$b->user_id)
-                    ->where('message',"Buku \"$title\" terlambat dikembalikan")
-                    ->whereDate('created_at',$today)
-                    ->exists();
+                // ===== USER =====
+                $messageUser = "Buku \"$title\" terlambat dikembalikan";
 
-                if (!$existsUser) {
+                if (!$this->alreadyNotified($b->user_id, $messageUser)) {
 
                     Notification::create([
                         'user_id'=>$b->user_id,
-                        'message'=>"Buku \"$title\" terlambat dikembalikan",
+                        'message'=>$messageUser,
                         'is_read'=>false
                     ]);
 
@@ -109,29 +102,26 @@ class CheckBorrowReminder extends Command
                     );
                 }
 
-                // ADMIN
+                // ===== ADMIN =====
+                $messageAdmin = "Buku \"$title\" milik $username terlambat";
+
                 foreach ($admins as $admin) {
 
-                    $existsAdmin = Notification::where('user_id',$admin->id)
-                        ->where('message',"Buku \"$title\" milik $username terlambat")
-                        ->whereDate('created_at',$today)
-                        ->exists();
-
-                    if (!$existsAdmin) {
+                    if (!$this->alreadyNotified($admin->id, $messageAdmin)) {
 
                         Notification::create([
                             'user_id'=>$admin->id,
-                            'message'=>"Buku \"$title\" milik $username terlambat",
+                            'message'=>$messageAdmin,
                             'is_read'=>false
                         ]);
-
-                        FcmService::sendToUser(
-                            $admin->id,
-                            'Peringatan!',
-                            "$username terlambat mengembalikan buku \"$title\""
-                        );
                     }
                 }
+
+                // 🔥 kirim ke semua admin SEKALI
+                FcmService::sendToAdmins(
+                    'Peringatan!',
+                    "$username terlambat mengembalikan buku \"$title\""
+                );
             }
         }
 
@@ -142,27 +132,25 @@ class CheckBorrowReminder extends Command
         */
 
         $tools = BorrowTool::with(['user','tool'])
-            ->where('status','approved')
+            ->whereIn('status',['approved','dipinjam'])
             ->get();
 
         foreach ($tools as $t) {
 
+            $returnDate = Carbon::parse($t->return_date);
             $username = $t->user->username ?? 'User';
             $name = $t->tool->name ?? 'Alat';
 
             // ================= H-1 =================
-            if ($t->return_date == $tomorrow) {
+            if ($returnDate->isSameDay($tomorrow)) {
 
-                $exists = Notification::where('user_id',$t->user_id)
-                    ->where('message',"Besok pengembalian alat \"$name\"")
-                    ->whereDate('created_at',$today)
-                    ->exists();
+                $message = "Besok pengembalian alat \"$name\"";
 
-                if (!$exists) {
+                if (!$this->alreadyNotified($t->user_id, $message)) {
 
                     Notification::create([
                         'user_id'=>$t->user_id,
-                        'message'=>"Besok pengembalian alat \"$name\"",
+                        'message'=>$message,
                         'is_read'=>false
                     ]);
 
@@ -175,18 +163,15 @@ class CheckBorrowReminder extends Command
             }
 
             // ================= HARI INI =================
-            if ($t->return_date == $today) {
+            if ($returnDate->isSameDay($today)) {
 
-                $exists = Notification::where('user_id',$t->user_id)
-                    ->where('message',"Hari ini batas pengembalian alat \"$name\"")
-                    ->whereDate('created_at',$today)
-                    ->exists();
+                $message = "Hari ini batas pengembalian alat \"$name\"";
 
-                if (!$exists) {
+                if (!$this->alreadyNotified($t->user_id, $message)) {
 
                     Notification::create([
                         'user_id'=>$t->user_id,
-                        'message'=>"Hari ini batas pengembalian alat \"$name\"",
+                        'message'=>$message,
                         'is_read'=>false
                     ]);
 
@@ -199,19 +184,16 @@ class CheckBorrowReminder extends Command
             }
 
             // ================= TERLAMBAT =================
-            if ($t->return_date < $today) {
+            if ($returnDate->lt($today)) {
 
-                // USER
-                $existsUser = Notification::where('user_id',$t->user_id)
-                    ->where('message',"Alat \"$name\" terlambat dikembalikan")
-                    ->whereDate('created_at',$today)
-                    ->exists();
+                // ===== USER =====
+                $messageUser = "Alat \"$name\" terlambat dikembalikan";
 
-                if (!$existsUser) {
+                if (!$this->alreadyNotified($t->user_id, $messageUser)) {
 
                     Notification::create([
                         'user_id'=>$t->user_id,
-                        'message'=>"Alat \"$name\" terlambat dikembalikan",
+                        'message'=>$messageUser,
                         'is_read'=>false
                     ]);
 
@@ -222,32 +204,37 @@ class CheckBorrowReminder extends Command
                     );
                 }
 
-                // ADMIN
+                // ===== ADMIN =====
+                $messageAdmin = "Alat \"$name\" milik $username terlambat";
+
                 foreach ($admins as $admin) {
 
-                    $existsAdmin = Notification::where('user_id',$admin->id)
-                        ->where('message',"Alat \"$name\" milik $username terlambat")
-                        ->whereDate('created_at',$today)
-                        ->exists();
-
-                    if (!$existsAdmin) {
+                    if (!$this->alreadyNotified($admin->id, $messageAdmin)) {
 
                         Notification::create([
                             'user_id'=>$admin->id,
-                            'message'=>"Alat \"$name\" milik $username terlambat",
+                            'message'=>$messageAdmin,
                             'is_read'=>false
                         ]);
-
-                        FcmService::sendToUser(
-                            $admin->id,
-                            'Peringatan!',
-                            "$username terlambat mengembalikan alat \"$name\""
-                        );
                     }
                 }
+
+                FcmService::sendToAdmins(
+                    'Peringatan!',
+                    "$username terlambat mengembalikan alat \"$name\""
+                );
             }
         }
 
         $this->info('Reminder checked successfully');
+    }
+
+    // ================= HELPER =================
+    private function alreadyNotified($userId, $message)
+    {
+        return Notification::where('user_id',$userId)
+            ->where('message',$message)
+            ->whereDate('created_at', Carbon::today())
+            ->exists();
     }
 }
