@@ -24,7 +24,7 @@ class BorrowToolController extends Controller
         $request->validate([
             'tool_id' => 'required|exists:tools,id',
             'borrow_date' => 'required|date',
-            'return_date' => 'required|date|after:borrow_date'
+            'end_date' => 'required|date|after_or_equal:start_date',
         ]);
 
         $tool = Tool::findOrFail($request->tool_id);

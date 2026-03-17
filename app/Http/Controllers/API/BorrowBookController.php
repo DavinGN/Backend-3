@@ -24,7 +24,7 @@ class BorrowBookController extends Controller
         $request->validate([
             'book_id' => 'required|exists:books,id',
             'borrow_date' => 'required|date',
-            'return_date' => 'required|date|after:borrow_date'
+            'end_date' => 'required|date|after_or_equal:start_date',
         ]);
 
         $book = Book::findOrFail($request->book_id);
