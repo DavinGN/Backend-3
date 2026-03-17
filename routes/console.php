@@ -8,5 +8,5 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-Schedule::command('borrow:reminder')->dailyAt('12:00');
-//Schedule::command('borrow:reminder')->everyMinute();
+//Schedule::command('borrow:reminder')->dailyAt('12:00');
+Schedule::command('borrow:reminder')->everyMinute();
