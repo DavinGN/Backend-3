@@ -14,6 +14,7 @@ use App\Http\Controllers\API\UserController;
 use App\Http\Controllers\API\NotificationController;
 use App\Http\Controllers\API\DashboardController;
 use App\Http\Controllers\API\FcmTokenController;
+use App\Services\FcmService;
 
 /*
 |--------------------------------------------------------------------------
@@ -22,7 +23,23 @@ use App\Http\Controllers\API\FcmTokenController;
 */
 
 Route::post('/login', [AuthController::class, 'login']);
+Route::get('/test-fcm', function () {
 
+    $tokens = \App\Models\FcmToken::where('is_active', true)
+        ->pluck('fcm_token')
+        ->toArray();
+
+    FcmService::sendToTokens(
+        $tokens,
+        '🔥 TEST NOTIFICATION',
+        'Ini dari Railway backend'
+    );
+
+    return response()->json([
+        'status' => 'success',
+        'tokens_count' => count($tokens)
+    ]);
+});
 
 /*
 |--------------------------------------------------------------------------
@@ -123,15 +140,16 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
     });
 
-    Route::get('/test-fcm', function(){
+    // Route::get('/test-fcm', function(){
 
-        \App\Services\FcmService::sendToTokens(
-            ['FCM_DEVICE_TOKEN'],
-            'Test Notification',
-            'Hello from Railway'
-        );
+    //     \App\Services\FcmService::sendToTokens(
+    //         ['d245XJwiTIWQD00_EZmtVz:APA91bF9f4m-3iUa4RJhDmS4s31mxWs8gtEWQqkhMo4fRkayy-TGeYImcbyMDuR0wEhlArooMcCcA1xNc9_OuXDzDOf98ODDire_sPjWsKt3HcE2KAQAU4I'],
+    //         'Test Notification',
+    //         'Hello from Railway'
+    //     );
 
-    });
+    //     return 'sent';
+    // });
     
     Route::post('/fcm-token', [FcmTokenController::class,'store']);
     Route::post('/fcm-token/deactivate', [FcmTokenController::class,'deactivate']);

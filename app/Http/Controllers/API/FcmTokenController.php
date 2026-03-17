@@ -8,48 +8,41 @@ use App\Models\FcmToken;
 
 class FcmTokenController extends Controller
 {
-
     public function store(Request $request)
     {
         $request->validate([
-            'fcm_token' => 'required|string',
-            'device_type' => 'required|string'
+            'fcm_token' => 'required|string'
         ]);
 
         $user = auth()->user();
 
-        $token = FcmToken::updateOrCreate(
+        FcmToken::updateOrCreate(
+            ['fcm_token' => $request->fcm_token],
             [
-                'fcm_token' => $request->fcm_token
-            ],
-            [
-                'siswa_id' => $user->role->name == 'murid' ? $user->id : null,
-                'guru_id' => $user->role->name == 'guru' ? $user->id : null,
-                'admin_id' => $user->role->name == 'admin' ? $user->id : null,
-                'device_type' => $request->device_type,
-                'is_active' => true,
-                'last_used_at' => now()
+                'siswa_id' => $user->siswa_id ?? null,
+                'guru_id' => $user->guru_id ?? null,
+                'admin_id' => $user->admin_id ?? null,
+                'device_type' => 'android',
+                'is_active' => true
             ]
         );
 
         return response()->json([
-            "message" => "Token saved",
-            "data" => $token
+            'message' => 'Token saved'
         ]);
     }
-
 
     public function deactivate(Request $request)
     {
+        $request->validate([
+            'fcm_token' => 'required'
+        ]);
 
-        FcmToken::where("fcm_token",$request->fcm_token)
-            ->update([
-                "is_active"=>false
-            ]);
+        FcmToken::where('fcm_token', $request->fcm_token)
+            ->update(['is_active' => false]);
 
         return response()->json([
-            "message"=>"Token deactivated"
+            'message' => 'Token deactivated'
         ]);
     }
-
 }
