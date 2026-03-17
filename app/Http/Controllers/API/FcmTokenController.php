@@ -19,9 +19,9 @@ class FcmTokenController extends Controller
         FcmToken::updateOrCreate(
             ['fcm_token' => $request->fcm_token],
             [
-                'siswa_id' => $user->siswa_id ?? null,
-                'guru_id' => $user->guru_id ?? null,
-                'admin_id' => $user->admin_id ?? null,
+                'admin_id' => $user->isAdmin() ? $user->id : null,
+                'guru_id'  => $user->isGuru() ? $user->id : null,
+                'siswa_id' => $user->isMurid() ? $user->id : null,
                 'device_type' => 'android',
                 'is_active' => true
             ]
