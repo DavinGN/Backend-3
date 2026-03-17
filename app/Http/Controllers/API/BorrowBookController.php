@@ -149,4 +149,63 @@ class BorrowBookController extends Controller
 
         return response()->json(['message' => 'Book returned']);
     }
+    public function myHistory()
+    {
+        $userId = auth()->id();
+
+        // ================= BOOK =================
+        $books = \App\Models\BorrowBook::with('book')
+            ->where('user_id', $userId)
+            ->get()
+            ->map(function ($b) {
+                return [
+                    'id' => $b->id,
+                    'type' => 'book',
+                    'title' => $b->book->title ?? '-',
+                    'status' => $b->status,
+                    'borrow_date' => $b->borrow_date,
+                    'return_date' => $b->return_date,
+                    'created_at' => $b->created_at,
+                ];
+            });
+
+        // ================= TOOL =================
+        $tools = \App\Models\BorrowTool::with('tool')
+            ->where('user_id', $userId)
+            ->get()
+            ->map(function ($t) {
+                return [
+                    'id' => $t->id,
+                    'type' => 'tool',
+                    'title' => $t->tool->name ?? '-',
+                    'status' => $t->status,
+                    'borrow_date' => $t->borrow_date,
+                    'return_date' => $t->return_date,
+                    'created_at' => $t->created_at,
+                ];
+            });
+
+        // ================= CONSUMABLE =================
+        $consumables = \App\Models\ConsumableRequest::with('consumable')
+            ->where('user_id', $userId)
+            ->get()
+            ->map(function ($c) {
+                return [
+                    'id' => $c->id,
+                    'type' => 'consumable',
+                    'title' => $c->consumable->name ?? '-',
+                    'status' => $c->status,
+                    'quantity' => $c->quantity,
+                    'created_at' => $c->created_at,
+                ];
+            });
+
+        // ================= MERGE =================
+        $data = $books
+            ->concat($tools)
+            ->concat($consumables)
+            ->values();
+
+        return response()->json($data);
+    }
 }
