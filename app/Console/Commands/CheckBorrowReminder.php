@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use App\Models\BorrowBook;
+use App\Models\BorrowTool;
 use App\Models\Notification;
 use App\Models\User;
 use App\Services\FcmService;
@@ -12,101 +13,237 @@ use Carbon\Carbon;
 class CheckBorrowReminder extends Command
 {
     protected $signature = 'borrow:reminder';
-
     protected $description = 'Check borrow reminder';
 
     public function handle()
     {
-        $tomorrow = Carbon::tomorrow()->toDateString();
         $today = Carbon::today()->toDateString();
+        $tomorrow = Carbon::tomorrow()->toDateString();
 
-        // ================= H-1 REMINDER =================
-        $borrowTomorrow = BorrowBook::whereDate('return_date', $tomorrow)
-            ->where('status', 'approved')
+        $admins = User::whereHas('role', fn($q) => $q->where('name','admin'))->get();
+
+        /*
+        ============================================
+        📚 BOOK REMINDER
+        ============================================
+        */
+
+        $books = BorrowBook::with(['user','book'])
+            ->where('status','approved')
             ->get();
 
-        foreach ($borrowTomorrow as $b) {
+        foreach ($books as $b) {
 
-            // ❗ ANTI DUPLIKAT
-            $exists = Notification::where('user_id', $b->user_id)
-                ->where('message', 'Pengembalian buku besok')
-                ->whereDate('created_at', today())
-                ->exists();
+            $username = $b->user->username ?? 'User';
+            $title = $b->book->title ?? 'Buku';
 
-            if (!$exists) {
+            // ================= H-1 =================
+            if ($b->return_date == $tomorrow) {
 
-                Notification::create([
-                    'user_id' => $b->user_id,
-                    'message' => 'Pengembalian buku besok',
-                    'is_read' => false
-                ]);
-
-                // 🔥 FCM
-                FcmService::sendToUser(
-                    $b->user_id,
-                    'Reminder Pengembalian',
-                    'Besok adalah batas pengembalian buku'
-                );
-            }
-        }
-
-        // ================= HARI INI =================
-        $borrowToday = BorrowBook::whereDate('return_date', $today)
-            ->where('status', 'approved')
-            ->get();
-
-        foreach ($borrowToday as $b) {
-
-            $exists = Notification::where('user_id', $b->user_id)
-                ->where('message', 'Hari ini batas pengembalian buku')
-                ->whereDate('created_at', today())
-                ->exists();
-
-            if (!$exists) {
-
-                Notification::create([
-                    'user_id' => $b->user_id,
-                    'message' => 'Hari ini batas pengembalian buku',
-                    'is_read' => false
-                ]);
-
-                FcmService::sendToUser(
-                    $b->user_id,
-                    'Reminder Pengembalian',
-                    'Hari ini batas pengembalian buku'
-                );
-            }
-        }
-
-        // ================= TERLAMBAT =================
-        $late = BorrowBook::whereDate('return_date', '<', $today)
-            ->where('status', 'approved')
-            ->get();
-
-        $admins = User::whereHas('role', fn($q) => $q->where('name', 'admin'))->get();
-
-        foreach ($late as $b) {
-
-            foreach ($admins as $admin) {
-
-                $exists = Notification::where('user_id', $admin->id)
-                    ->where('message', 'Ada buku yang melewati tanggal pengembalian')
-                    ->whereDate('created_at', today())
+                $exists = Notification::where('user_id',$b->user_id)
+                    ->where('message',"Besok pengembalian buku \"$title\"")
+                    ->whereDate('created_at',$today)
                     ->exists();
 
                 if (!$exists) {
 
                     Notification::create([
-                        'user_id' => $admin->id,
-                        'message' => 'Ada buku yang melewati tanggal pengembalian',
-                        'is_read' => false
+                        'user_id'=>$b->user_id,
+                        'message'=>"Besok pengembalian buku \"$title\"",
+                        'is_read'=>false
                     ]);
 
                     FcmService::sendToUser(
-                        $admin->id,
-                        'Peringatan Keterlambatan',
-                        'Ada buku yang melewati tanggal pengembalian'
+                        $b->user_id,
+                        'Reminder H-1',
+                        "Besok batas pengembalian buku \"$title\""
                     );
+                }
+            }
+
+            // ================= HARI INI =================
+            if ($b->return_date == $today) {
+
+                $exists = Notification::where('user_id',$b->user_id)
+                    ->where('message',"Hari ini batas pengembalian buku \"$title\"")
+                    ->whereDate('created_at',$today)
+                    ->exists();
+
+                if (!$exists) {
+
+                    Notification::create([
+                        'user_id'=>$b->user_id,
+                        'message'=>"Hari ini batas pengembalian buku \"$title\"",
+                        'is_read'=>false
+                    ]);
+
+                    FcmService::sendToUser(
+                        $b->user_id,
+                        'Reminder Hari Ini',
+                        "Hari ini batas pengembalian buku \"$title\""
+                    );
+                }
+            }
+
+            // ================= TERLAMBAT =================
+            if ($b->return_date < $today) {
+
+                // USER
+                $existsUser = Notification::where('user_id',$b->user_id)
+                    ->where('message',"Buku \"$title\" terlambat dikembalikan")
+                    ->whereDate('created_at',$today)
+                    ->exists();
+
+                if (!$existsUser) {
+
+                    Notification::create([
+                        'user_id'=>$b->user_id,
+                        'message'=>"Buku \"$title\" terlambat dikembalikan",
+                        'is_read'=>false
+                    ]);
+
+                    FcmService::sendToUser(
+                        $b->user_id,
+                        'Terlambat!',
+                        "Buku \"$title\" sudah melewati batas pengembalian"
+                    );
+                }
+
+                // ADMIN
+                foreach ($admins as $admin) {
+
+                    $existsAdmin = Notification::where('user_id',$admin->id)
+                        ->where('message',"Buku \"$title\" milik $username terlambat")
+                        ->whereDate('created_at',$today)
+                        ->exists();
+
+                    if (!$existsAdmin) {
+
+                        Notification::create([
+                            'user_id'=>$admin->id,
+                            'message'=>"Buku \"$title\" milik $username terlambat",
+                            'is_read'=>false
+                        ]);
+
+                        FcmService::sendToUser(
+                            $admin->id,
+                            'Peringatan!',
+                            "$username terlambat mengembalikan buku \"$title\""
+                        );
+                    }
+                }
+            }
+        }
+
+        /*
+        ============================================
+        🔧 TOOL REMINDER
+        ============================================
+        */
+
+        $tools = BorrowTool::with(['user','tool'])
+            ->where('status','approved')
+            ->get();
+
+        foreach ($tools as $t) {
+
+            $username = $t->user->username ?? 'User';
+            $name = $t->tool->name ?? 'Alat';
+
+            // ================= H-1 =================
+            if ($t->return_date == $tomorrow) {
+
+                $exists = Notification::where('user_id',$t->user_id)
+                    ->where('message',"Besok pengembalian alat \"$name\"")
+                    ->whereDate('created_at',$today)
+                    ->exists();
+
+                if (!$exists) {
+
+                    Notification::create([
+                        'user_id'=>$t->user_id,
+                        'message'=>"Besok pengembalian alat \"$name\"",
+                        'is_read'=>false
+                    ]);
+
+                    FcmService::sendToUser(
+                        $t->user_id,
+                        'Reminder H-1',
+                        "Besok batas pengembalian alat \"$name\""
+                    );
+                }
+            }
+
+            // ================= HARI INI =================
+            if ($t->return_date == $today) {
+
+                $exists = Notification::where('user_id',$t->user_id)
+                    ->where('message',"Hari ini batas pengembalian alat \"$name\"")
+                    ->whereDate('created_at',$today)
+                    ->exists();
+
+                if (!$exists) {
+
+                    Notification::create([
+                        'user_id'=>$t->user_id,
+                        'message'=>"Hari ini batas pengembalian alat \"$name\"",
+                        'is_read'=>false
+                    ]);
+
+                    FcmService::sendToUser(
+                        $t->user_id,
+                        'Reminder Hari Ini',
+                        "Hari ini batas pengembalian alat \"$name\""
+                    );
+                }
+            }
+
+            // ================= TERLAMBAT =================
+            if ($t->return_date < $today) {
+
+                // USER
+                $existsUser = Notification::where('user_id',$t->user_id)
+                    ->where('message',"Alat \"$name\" terlambat dikembalikan")
+                    ->whereDate('created_at',$today)
+                    ->exists();
+
+                if (!$existsUser) {
+
+                    Notification::create([
+                        'user_id'=>$t->user_id,
+                        'message'=>"Alat \"$name\" terlambat dikembalikan",
+                        'is_read'=>false
+                    ]);
+
+                    FcmService::sendToUser(
+                        $t->user_id,
+                        'Terlambat!',
+                        "Alat \"$name\" sudah melewati batas pengembalian"
+                    );
+                }
+
+                // ADMIN
+                foreach ($admins as $admin) {
+
+                    $existsAdmin = Notification::where('user_id',$admin->id)
+                        ->where('message',"Alat \"$name\" milik $username terlambat")
+                        ->whereDate('created_at',$today)
+                        ->exists();
+
+                    if (!$existsAdmin) {
+
+                        Notification::create([
+                            'user_id'=>$admin->id,
+                            'message'=>"Alat \"$name\" milik $username terlambat",
+                            'is_read'=>false
+                        ]);
+
+                        FcmService::sendToUser(
+                            $admin->id,
+                            'Peringatan!',
+                            "$username terlambat mengembalikan alat \"$name\""
+                        );
+                    }
                 }
             }
         }
