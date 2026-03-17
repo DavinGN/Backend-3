@@ -24,7 +24,7 @@ class BorrowToolController extends Controller
         $request->validate([
             'tool_id' => 'required|exists:tools,id',
             'borrow_date' => 'required|date',
-            'end_date' => 'required|date|after_or_equal:start_date',
+            'end_date' => 'required|date|after_or_equal:borrow_date',
         ]);
 
         $tool = Tool::findOrFail($request->tool_id);
@@ -37,12 +37,13 @@ class BorrowToolController extends Controller
             'user_id' => auth()->id(),
             'tool_id' => $tool->id,
             'borrow_date' => $request->borrow_date,
-            'return_date' => $request->return_date,
+            'return_date' => $request->end_date, // ✅ FIX
             'status' => 'pending'
         ]);
 
         $tool->update(['status' => 'pending']);
 
+        // 🔔 Notif ke admin
         $admins = User::whereHas('role', fn($q) => $q->where('name','admin'))->get();
 
         foreach ($admins as $admin) {
@@ -78,7 +79,7 @@ class BorrowToolController extends Controller
             'verified_by' => auth()->id()
         ]);
 
-        $borrow->tool?->update(['status' => 'dipinjam']);
+        $borrow->tool->update(['status' => 'dipinjam']);
 
         Notification::create([
             'user_id' => $borrow->user_id,
@@ -112,7 +113,7 @@ class BorrowToolController extends Controller
             'verified_by' => auth()->id()
         ]);
 
-        $borrow->tool?->update(['status' => 'tersedia']);
+        $borrow->tool->update(['status' => 'tersedia']);
 
         Notification::create([
             'user_id' => $borrow->user_id,
@@ -142,7 +143,7 @@ class BorrowToolController extends Controller
         }
 
         $borrow->update(['status' => 'returned']);
-        $borrow->tool?->update(['status' => 'tersedia']);
+        $borrow->tool->update(['status' => 'tersedia']);
 
         return response()->json(['message' => 'Tool returned successfully']);
     }

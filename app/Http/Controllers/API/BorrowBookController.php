@@ -24,7 +24,7 @@ class BorrowBookController extends Controller
         $request->validate([
             'book_id' => 'required|exists:books,id',
             'borrow_date' => 'required|date',
-            'end_date' => 'required|date|after_or_equal:start_date',
+            'end_date' => 'required|date|after_or_equal:borrow_date',
         ]);
 
         $book = Book::findOrFail($request->book_id);
@@ -39,12 +39,13 @@ class BorrowBookController extends Controller
             'user_id' => auth()->id(),
             'book_id' => $book->id,
             'borrow_date' => $request->borrow_date,
-            'return_date' => $request->return_date,
+            'return_date' => $request->end_date, // ✅ FIX
             'status' => 'pending'
         ]);
 
         $book->update(['status' => 'pending']);
 
+        // 🔔 Notif ke admin
         $admins = User::whereHas('role', fn($q) => $q->where('name','admin'))->get();
 
         foreach ($admins as $admin) {
@@ -69,7 +70,7 @@ class BorrowBookController extends Controller
 
     public function approve($id)
     {
-        $borrow = BorrowBook::findOrFail($id);
+        $borrow = BorrowBook::with('book')->findOrFail($id);
 
         if ($borrow->status !== 'pending') {
             return response()->json(['message' => 'Already processed'], 400);
@@ -103,7 +104,7 @@ class BorrowBookController extends Controller
 
     public function reject($id)
     {
-        $borrow = BorrowBook::findOrFail($id);
+        $borrow = BorrowBook::with('book')->findOrFail($id);
 
         if ($borrow->status !== 'pending') {
             return response()->json(['message' => 'Already processed'], 400);
@@ -137,7 +138,7 @@ class BorrowBookController extends Controller
 
     public function returnBook($id)
     {
-        $borrow = BorrowBook::findOrFail($id);
+        $borrow = BorrowBook::with('book')->findOrFail($id);
 
         if ($borrow->status !== 'approved') {
             return response()->json(['message' => 'Not approved yet'], 400);
