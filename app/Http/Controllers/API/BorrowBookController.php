@@ -12,7 +12,6 @@ use App\Services\FcmService;
 
 class BorrowBookController extends Controller
 {
-    // ================= LIST ALL BORROW =================
     public function index()
     {
         return BorrowBook::with(['user','book'])
@@ -20,7 +19,6 @@ class BorrowBookController extends Controller
             ->get();
     }
 
-    // ================= USER REQUEST =================
     public function store(Request $request)
     {
         $request->validate([
@@ -45,14 +43,9 @@ class BorrowBookController extends Controller
             'status' => 'pending'
         ]);
 
-        $book->update([
-            'status' => 'pending'
-        ]);
+        $book->update(['status' => 'pending']);
 
-        // NOTIFIKASI KE SEMUA ADMIN
-        $admins = User::whereHas('role', function($q){
-            $q->where('name','admin');
-        })->get();
+        $admins = User::whereHas('role', fn($q) => $q->where('name','admin'))->get();
 
         foreach ($admins as $admin) {
             Notification::create([
@@ -62,23 +55,24 @@ class BorrowBookController extends Controller
             ]);
         }
 
-        FcmService::sendToAdmins(
-            'Peminjaman Buku Baru',
-            'Ada peminjaman buku baru dari ' . auth()->user()->username
-        );
+        try {
+            FcmService::sendToAdmins(
+                'Peminjaman Buku Baru',
+                'Ada peminjaman buku baru dari ' . auth()->user()->username
+            );
+        } catch (\Exception $e) {
+            \Log::error("FCM: ".$e->getMessage());
+        }
 
         return response()->json($borrow, 201);
     }
 
-    // ================= APPROVE =================
     public function approve($id)
     {
         $borrow = BorrowBook::findOrFail($id);
 
         if ($borrow->status !== 'pending') {
-            return response()->json([
-                'message' => 'Already processed'
-            ], 400);
+            return response()->json(['message' => 'Already processed'], 400);
         }
 
         $borrow->update([
@@ -86,9 +80,7 @@ class BorrowBookController extends Controller
             'verified_by' => auth()->id()
         ]);
 
-        $borrow->book->update([
-            'status' => 'dipinjam'
-        ]);
+        $borrow->book->update(['status' => 'dipinjam']);
 
         Notification::create([
             'user_id' => $borrow->user_id,
@@ -96,26 +88,25 @@ class BorrowBookController extends Controller
             'is_read' => false
         ]);
 
-        FcmService::sendToUser(
-            $borrow->user_id,
-            'Peminjaman Buku Disetujui',
-            'Peminjaman buku Anda disetujui oleh admin'
-        );
+        try {
+            FcmService::sendToUser(
+                $borrow->user_id,
+                'Peminjaman Buku Disetujui',
+                'Peminjaman buku Anda disetujui oleh admin'
+            );
+        } catch (\Exception $e) {
+            \Log::error($e->getMessage());
+        }
 
-        return response()->json([
-            'message' => 'Approved successfully'
-        ]);
+        return response()->json(['message' => 'Approved successfully']);
     }
 
-    // ================= REJECT =================
     public function reject($id)
     {
         $borrow = BorrowBook::findOrFail($id);
 
         if ($borrow->status !== 'pending') {
-            return response()->json([
-                'message' => 'Already processed'
-            ], 400);
+            return response()->json(['message' => 'Already processed'], 400);
         }
 
         $borrow->update([
@@ -123,9 +114,7 @@ class BorrowBookController extends Controller
             'verified_by' => auth()->id()
         ]);
 
-        $borrow->book->update([
-            'status' => 'tersedia'
-        ]);
+        $borrow->book->update(['status' => 'tersedia']);
 
         Notification::create([
             'user_id' => $borrow->user_id,
@@ -133,92 +122,30 @@ class BorrowBookController extends Controller
             'is_read' => false
         ]);
 
-        FcmService::sendToUser(
-            $borrow->user_id,
-            'Peminjaman Buku Ditolak',
-            'Peminjaman buku Anda ditolak oleh admin'
-        );
+        try {
+            FcmService::sendToUser(
+                $borrow->user_id,
+                'Peminjaman Buku Ditolak',
+                'Peminjaman buku Anda ditolak oleh admin'
+            );
+        } catch (\Exception $e) {
+            \Log::error($e->getMessage());
+        }
 
-        return response()->json([
-            'message' => 'Rejected successfully'
-        ]);
+        return response()->json(['message' => 'Rejected successfully']);
     }
 
-    // ================= RETURN =================
     public function returnBook($id)
     {
         $borrow = BorrowBook::findOrFail($id);
 
         if ($borrow->status !== 'approved') {
-            return response()->json([
-                'message' => 'Not approved yet'
-            ], 400);
+            return response()->json(['message' => 'Not approved yet'], 400);
         }
 
-        $borrow->update([
-            'status' => 'returned'
-        ]);
+        $borrow->update(['status' => 'returned']);
+        $borrow->book->update(['status' => 'tersedia']);
 
-        $borrow->book->update([
-            'status' => 'tersedia'
-        ]);
-
-        return response()->json([
-            'message' => 'Book returned'
-        ]);
-    }
-
-    // ================= MY HISTORY =================
-    public function myHistory()
-    {
-        $userId = auth()->id();
-
-        $books = \App\Models\BorrowBook::with('book')
-            ->where('user_id', $userId)
-            ->get()
-            ->map(function ($item) {
-                return [
-                    'type' => 'book',
-                    'title' => $item->book->title ?? '-',
-                    'status' => $item->status,
-                    'borrow_date' => $item->borrow_date,
-                    'return_date' => $item->return_date,
-                ];
-            });
-
-        $tools = \App\Models\BorrowTool::with('tool')
-            ->where('user_id', $userId)
-            ->get()
-            ->map(function ($item) {
-                return [
-                    'type' => 'tool',
-                    'title' => $item->tool->name ?? '-',
-                    'status' => $item->status,
-                    'borrow_date' => $item->borrow_date,
-                    'return_date' => $item->return_date,
-                ];
-            });
-
-        $consumables = \App\Models\ConsumableRequest::with('consumable')
-            ->where('user_id', $userId)
-            ->get()
-            ->map(function ($item) {
-                return [
-                    'type' => 'consumable',
-                    'title' => $item->consumable->name ?? '-',
-                    'status' => $item->status,
-                    'quantity' => $item->quantity,
-                    'borrow_date' => null,
-                    'return_date' => null,
-                ];
-            });
-
-        $history = $books
-            ->concat($tools)
-            ->concat($consumables)
-            ->sortByDesc('borrow_date')
-            ->values();
-
-        return response()->json($history);
+        return response()->json(['message' => 'Book returned']);
     }
 }

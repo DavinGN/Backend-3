@@ -4,6 +4,7 @@ namespace App\Services;
 
 use Kreait\Firebase\Factory;
 use App\Models\FcmToken;
+use Illuminate\Support\Facades\Log;
 
 class FcmService
 {
@@ -11,22 +12,36 @@ class FcmService
     {
         if (count($tokens) == 0) return;
 
-        $factory = (new Factory)
-            ->withServiceAccount(storage_path('app/firebase/service-account.json'));
+        try {
 
-        $messaging = $factory->createMessaging();
+            $factory = (new Factory)
+                ->withServiceAccount(
+                    base_path(config('firebase.projects.app.credentials'))
+                );
 
-        foreach ($tokens as $token) {
+            $messaging = $factory->createMessaging();
 
-            $message = [
-                'token' => $token,
-                'notification' => [
-                    'title' => $title,
-                    'body' => $body
-                ]
-            ];
+            foreach ($tokens as $token) {
 
-            $messaging->send($message);
+                try {
+
+                    $messaging->send([
+                        'token' => $token,
+                        'notification' => [
+                            'title' => $title,
+                            'body' => $body
+                        ]
+                    ]);
+
+                } catch (\Exception $e) {
+                    Log::error("FCM Send Error: " . $e->getMessage());
+                }
+
+            }
+
+        } catch (\Exception $e) {
+
+            Log::error("FCM Init Error: " . $e->getMessage());
 
         }
     }
@@ -51,6 +66,12 @@ class FcmService
         ->pluck("fcm_token")
         ->toArray();
 
+        self::sendPush($tokens, $title, $body);
+    }
+
+    // UNTUK TEST
+    public static function sendToTokens($tokens, $title, $body)
+    {
         self::sendPush($tokens, $title, $body);
     }
 }

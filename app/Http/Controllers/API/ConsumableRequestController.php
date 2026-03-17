@@ -5,12 +5,13 @@ namespace App\Http\Controllers\API;
 use App\Http\Controllers\Controller;
 use App\Models\ConsumableRequest;
 use App\Models\Consumable;
+use App\Models\User;
+use App\Models\Notification;
 use Illuminate\Http\Request;
 use App\Services\FcmService;
 
 class ConsumableRequestController extends Controller
 {
-    // ================= LIST ALL (ADMIN) =================
     public function index()
     {
         return ConsumableRequest::with(['user','consumable'])
@@ -18,7 +19,6 @@ class ConsumableRequestController extends Controller
             ->get();
     }
 
-    // ================= USER REQUEST (GURU ONLY) =================
     public function store(Request $request)
     {
         $request->validate([
@@ -28,11 +28,8 @@ class ConsumableRequestController extends Controller
 
         $consumable = Consumable::findOrFail($request->consumable_id);
 
-        // CEK STOCK
         if ($consumable->stock < $request->quantity) {
-            return response()->json([
-                'message' => 'Stock tidak cukup'
-            ], 400);
+            return response()->json(['message' => 'Stock tidak cukup'], 400);
         }
 
         $requestData = ConsumableRequest::create([
@@ -42,10 +39,7 @@ class ConsumableRequestController extends Controller
             'status' => 'pending'
         ]);
 
-        // NOTIFIKASI KE SEMUA ADMIN
-        $admins = User::whereHas('role', function($q){
-            $q->where('name','admin');
-        })->get();
+        $admins = User::whereHas('role', fn($q) => $q->where('name','admin'))->get();
 
         foreach ($admins as $admin) {
             Notification::create([
@@ -55,34 +49,31 @@ class ConsumableRequestController extends Controller
             ]);
         }
 
-        FcmService::sendToAdmins(
-            'Permintaan Barang Baru',
-            'Ada permintaan barang baru dari ' . auth()->user()->username
-        );
+        try {
+            FcmService::sendToAdmins(
+                'Permintaan Barang Baru',
+                'Ada permintaan barang baru dari ' . auth()->user()->username
+            );
+        } catch (\Exception $e) {
+            \Log::error($e->getMessage());
+        }
 
         return response()->json($requestData, 201);
     }
 
-    // ================= APPROVE =================
     public function approve($id)
     {
         $requestData = ConsumableRequest::with('consumable')->findOrFail($id);
 
         if ($requestData->status !== 'pending') {
-            return response()->json([
-                'message' => 'Request sudah diproses'
-            ], 400);
+            return response()->json(['message' => 'Request sudah diproses'], 400);
         }
 
-        $consumable = $requestData->consumable;
-
-        if ($consumable->stock < $requestData->quantity) {
-            return response()->json([
-                'message' => 'Stock tidak cukup'
-            ], 400);
+        if ($requestData->consumable->stock < $requestData->quantity) {
+            return response()->json(['message' => 'Stock tidak cukup'], 400);
         }
 
-        $consumable->decrement('stock', $requestData->quantity);
+        $requestData->consumable->decrement('stock', $requestData->quantity);
 
         $requestData->update([
             'status' => 'approved',
@@ -95,26 +86,25 @@ class ConsumableRequestController extends Controller
             'is_read' => false
         ]);
 
-        FcmService::sendToUser(
-            $requestData->user_id,
-            'Permintaan Barang Disetujui',
-            'Permintaan barang Anda disetujui oleh admin'
-        );
+        try {
+            FcmService::sendToUser(
+                $requestData->user_id,
+                'Permintaan Barang Disetujui',
+                'Permintaan barang Anda disetujui oleh admin'
+            );
+        } catch (\Exception $e) {
+            \Log::error($e->getMessage());
+        }
 
-        return response()->json([
-            'message' => 'Request approved'
-        ]);
+        return response()->json(['message' => 'Request approved']);
     }
 
-    // ================= REJECT =================
     public function reject($id)
     {
         $requestData = ConsumableRequest::findOrFail($id);
 
         if ($requestData->status !== 'pending') {
-            return response()->json([
-                'message' => 'Request sudah diproses'
-            ], 400);
+            return response()->json(['message' => 'Request sudah diproses'], 400);
         }
 
         $requestData->update([
@@ -128,14 +118,16 @@ class ConsumableRequestController extends Controller
             'is_read' => false
         ]);
 
-        FcmService::sendToUser(
-            $requestData->user_id,
-            'Permintaan Barang Ditolak',
-            'Permintaan barang Anda ditolak oleh admin'
-        );
+        try {
+            FcmService::sendToUser(
+                $requestData->user_id,
+                'Permintaan Barang Ditolak',
+                'Permintaan barang Anda ditolak oleh admin'
+            );
+        } catch (\Exception $e) {
+            \Log::error($e->getMessage());
+        }
 
-        return response()->json([
-            'message' => 'Request rejected'
-        ]);
+        return response()->json(['message' => 'Request rejected']);
     }
 }

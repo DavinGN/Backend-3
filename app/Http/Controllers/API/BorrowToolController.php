@@ -12,7 +12,6 @@ use App\Services\FcmService;
 
 class BorrowToolController extends Controller
 {
-    // ================= LIST ALL =================
     public function index()
     {
         return BorrowTool::with(['user','tool'])
@@ -20,7 +19,6 @@ class BorrowToolController extends Controller
             ->get();
     }
 
-    // ================= STORE =================
     public function store(Request $request)
     {
         $request->validate([
@@ -32,9 +30,7 @@ class BorrowToolController extends Controller
         $tool = Tool::findOrFail($request->tool_id);
 
         if ($tool->status !== 'tersedia') {
-            return response()->json([
-                'message' => 'Alat tidak tersedia'
-            ], 400);
+            return response()->json(['message' => 'Alat tidak tersedia'], 400);
         }
 
         $borrow = BorrowTool::create([
@@ -45,14 +41,9 @@ class BorrowToolController extends Controller
             'status' => 'pending'
         ]);
 
-        $tool->update([
-            'status' => 'pending'
-        ]);
+        $tool->update(['status' => 'pending']);
 
-        // NOTIFIKASI KE SEMUA ADMIN
-        $admins = User::whereHas('role', function($q){
-            $q->where('name','admin');
-        })->get();
+        $admins = User::whereHas('role', fn($q) => $q->where('name','admin'))->get();
 
         foreach ($admins as $admin) {
             Notification::create([
@@ -62,23 +53,24 @@ class BorrowToolController extends Controller
             ]);
         }
 
-        FcmService::sendToAdmins(
-            'Peminjaman Alat Baru',
-            'Ada peminjaman alat baru dari ' . auth()->user()->username
-        );
+        try {
+            FcmService::sendToAdmins(
+                'Peminjaman Alat Baru',
+                'Ada peminjaman alat baru dari ' . auth()->user()->username
+            );
+        } catch (\Exception $e) {
+            \Log::error($e->getMessage());
+        }
 
         return response()->json($borrow, 201);
     }
 
-    // ================= APPROVE =================
     public function approve($id)
     {
         $borrow = BorrowTool::with('tool')->findOrFail($id);
 
         if ($borrow->status !== 'pending') {
-            return response()->json([
-                'message' => 'Sudah diproses'
-            ], 400);
+            return response()->json(['message' => 'Sudah diproses'], 400);
         }
 
         $borrow->update([
@@ -86,11 +78,7 @@ class BorrowToolController extends Controller
             'verified_by' => auth()->id()
         ]);
 
-        if ($borrow->tool) {
-            $borrow->tool->update([
-                'status' => 'dipinjam'
-            ]);
-        }
+        $borrow->tool?->update(['status' => 'dipinjam']);
 
         Notification::create([
             'user_id' => $borrow->user_id,
@@ -98,25 +86,25 @@ class BorrowToolController extends Controller
             'is_read' => false
         ]);
 
-        FcmService::sendToUser(
-            $borrow->user_id,
-            'Peminjaman Alat Disetujui',
-            'Peminjaman alat Anda disetujui oleh admin'
-        );
+        try {
+            FcmService::sendToUser(
+                $borrow->user_id,
+                'Peminjaman Alat Disetujui',
+                'Peminjaman alat Anda disetujui oleh admin'
+            );
+        } catch (\Exception $e) {
+            \Log::error($e->getMessage());
+        }
 
-        return response()->json([
-            'message' => 'Tool approved successfully'
-        ]);
+        return response()->json(['message' => 'Tool approved successfully']);
     }
-    // ================= REJECT =================
+
     public function reject($id)
     {
         $borrow = BorrowTool::with('tool')->findOrFail($id);
 
         if ($borrow->status !== 'pending') {
-            return response()->json([
-                'message' => 'Sudah diproses'
-            ], 400);
+            return response()->json(['message' => 'Sudah diproses'], 400);
         }
 
         $borrow->update([
@@ -124,11 +112,7 @@ class BorrowToolController extends Controller
             'verified_by' => auth()->id()
         ]);
 
-        if ($borrow->tool) {
-            $borrow->tool->update([
-                'status' => 'tersedia'
-            ]);
-        }
+        $borrow->tool?->update(['status' => 'tersedia']);
 
         Notification::create([
             'user_id' => $borrow->user_id,
@@ -136,40 +120,30 @@ class BorrowToolController extends Controller
             'is_read' => false
         ]);
 
-        FcmService::sendToUser(
-            $borrow->user_id,
-            'Peminjaman Alat Ditolak',
-            'Peminjaman alat Anda ditolak oleh admin'
-        );
+        try {
+            FcmService::sendToUser(
+                $borrow->user_id,
+                'Peminjaman Alat Ditolak',
+                'Peminjaman alat Anda ditolak oleh admin'
+            );
+        } catch (\Exception $e) {
+            \Log::error($e->getMessage());
+        }
 
-        return response()->json([
-            'message' => 'Tool rejected successfully'
-        ]);
+        return response()->json(['message' => 'Tool rejected successfully']);
     }
 
-    // ================= RETURN =================
     public function returnTool($id)
     {
         $borrow = BorrowTool::with('tool')->findOrFail($id);
 
         if ($borrow->status !== 'approved') {
-            return response()->json([
-                'message' => 'Belum disetujui'
-            ], 400);
+            return response()->json(['message' => 'Belum disetujui'], 400);
         }
 
-        $borrow->update([
-            'status' => 'returned'
-        ]);
+        $borrow->update(['status' => 'returned']);
+        $borrow->tool?->update(['status' => 'tersedia']);
 
-        if ($borrow->tool) {
-            $borrow->tool->update([
-                'status' => 'tersedia'
-            ]);
-        }
-
-        return response()->json([
-            'message' => 'Tool returned successfully'
-        ]);
+        return response()->json(['message' => 'Tool returned successfully']);
     }
 }
