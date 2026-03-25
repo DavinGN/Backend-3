@@ -20,6 +20,12 @@ class CheckBorrowReminder extends Command
         $today = Carbon::today();
         $tomorrow = Carbon::tomorrow();
 
+        $now = Carbon::now();
+        $currentHour = $now->format('H');
+
+        // hanya jam 10 dan 11 untuk keterlambatan
+        $isLateTime = in_array($currentHour, ['10','11']);
+
         // ambil admin
         $admins = User::whereHas('role', fn($q) => $q->where('name','admin'))->get();
 
@@ -82,7 +88,7 @@ class CheckBorrowReminder extends Command
             }
 
             // ================= TERLAMBAT =================
-            if ($returnDate->lt($today)) {
+            if ($returnDate->lt($today) && $isLateTime) {
 
                 // ===== USER =====
                 $messageUser = "Buku \"$title\" terlambat dikembalikan";
@@ -117,7 +123,6 @@ class CheckBorrowReminder extends Command
                     }
                 }
 
-                // 🔥 kirim ke semua admin SEKALI
                 FcmService::sendToAdmins(
                     'Peringatan!',
                     "$username terlambat mengembalikan buku \"$title\""
@@ -184,7 +189,7 @@ class CheckBorrowReminder extends Command
             }
 
             // ================= TERLAMBAT =================
-            if ($returnDate->lt($today)) {
+            if ($returnDate->lt($today) && $isLateTime) {
 
                 // ===== USER =====
                 $messageUser = "Alat \"$name\" terlambat dikembalikan";
