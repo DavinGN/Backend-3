@@ -23,6 +23,11 @@ class ToolController extends Controller
             $query->where('status', $request->status);
         }
 
+        // 🔥 TAMBAHAN: HANDLE EXPORT ALL
+        if ($request->has('all')) {
+            return response()->json($query->get());
+        }
+
         return response()->json($query->paginate(10));
     }
 
@@ -32,7 +37,7 @@ class ToolController extends Controller
             'name' => 'required|string',
             'location' => 'nullable|string',
             'status' => 'nullable|in:tersedia,pending,dipinjam',
-            'kondisi_id' => 'nullable|exists:kondisi,id' // ✅ FIX DISINI
+            'kondisi_id' => 'nullable|exists:kondisi,id'
         ]);
 
         $data['location'] = $data['location'] ?? '-';
@@ -54,7 +59,7 @@ class ToolController extends Controller
             'name' => 'nullable|string',
             'location' => 'nullable|string',
             'status' => 'nullable|in:tersedia,pending,dipinjam',
-            'kondisi_id' => 'nullable|exists:kondisi,id' // ✅ FIX DISINI
+            'kondisi_id' => 'nullable|exists:kondisi,id'
         ]);
 
         $tool->update($data);

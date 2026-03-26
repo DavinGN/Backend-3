@@ -14,7 +14,7 @@ class BookController extends Controller
         $search = $request->search;
         $status = $request->status;
 
-        $books = Book::with('category')
+        $query = Book::with('category')
             ->when($search, function ($q) use ($search) {
                 $q->where(function ($query) use ($search) {
                     $query->where('title', 'like', "%$search%")
@@ -28,10 +28,14 @@ class BookController extends Controller
             ->when($status, function ($q) use ($status) {
                 $q->where('status', $status);
             })
-            ->orderBy('created_at', 'desc')
-            ->paginate(10);
+            ->orderBy('created_at', 'desc');
 
-        return response()->json($books);
+        // 🔥 TAMBAHAN: HANDLE EXPORT ALL
+        if ($request->has('all')) {
+            return response()->json($query->get());
+        }
+
+        return response()->json($query->paginate(10));
     }
 
     // ================= STORE =================
