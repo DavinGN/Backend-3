@@ -8,21 +8,24 @@ use Illuminate\Http\Request;
 
 class KondisiController extends Controller
 {
-
-    // LIST KONDISI
     public function index()
     {
-        $kondisi = Kondisi::all();
-
-        return response()->json($kondisi);
+        return response()->json(
+            Kondisi::select('id','name')->get()
+        );
     }
 
+    public function show($id)
+    {
+        return response()->json(
+            Kondisi::findOrFail($id)
+        );
+    }
 
-    // CREATE KONDISI
     public function store(Request $request)
     {
         $data = $request->validate([
-            'name' => 'required|string'
+            'name' => 'required|string|max:100'
         ]);
 
         $kondisi = Kondisi::create($data);
@@ -30,23 +33,12 @@ class KondisiController extends Controller
         return response()->json($kondisi);
     }
 
-
-    // DETAIL
-    public function show($id)
-    {
-        $kondisi = Kondisi::findOrFail($id);
-
-        return response()->json($kondisi);
-    }
-
-
-    // UPDATE
     public function update(Request $request, $id)
     {
         $kondisi = Kondisi::findOrFail($id);
 
         $data = $request->validate([
-            'name' => 'required|string'
+            'name' => 'required|string|max:100'
         ]);
 
         $kondisi->update($data);
@@ -54,8 +46,6 @@ class KondisiController extends Controller
         return response()->json($kondisi);
     }
 
-
-    // DELETE
     public function destroy($id)
     {
         Kondisi::destroy($id);
@@ -64,5 +54,4 @@ class KondisiController extends Controller
             'message' => 'Deleted'
         ]);
     }
-
 }
