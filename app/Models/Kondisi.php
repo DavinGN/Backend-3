@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Kondisi extends Model
 {
-    protected $table = 'kondisis';
+    protected $table = 'kondisi'; 
 
     protected $fillable = [
         'name'

@@ -47,7 +47,7 @@ Route::get('/test-fcm', function () {
 
 /*
 |--------------------------------------------------------------------------
-| AUTHENTICATED USERS (ALL ROLES)
+| AUTHENTICATED USERS
 |--------------------------------------------------------------------------
 */
 
@@ -55,22 +55,25 @@ Route::middleware('auth:sanctum')->group(function () {
 
     /*
     |--------------------------------------------------------------------------
-    | GENERAL DATA (ALL LOGGED USERS)
+    | GENERAL DATA
     |--------------------------------------------------------------------------
     */
 
+    // BOOKS
     Route::get('/books', [BookController::class, 'index']);
     Route::get('/books/{id}', [BookController::class, 'show']);
 
+    // TOOLS
     Route::get('/tools', [ToolController::class, 'index']);
     Route::get('/tools/{id}', [ToolController::class, 'show']);
 
-    Route::get('/consumables', [ConsumableController::class, 'index']);
-    Route::get('/digital-books', [DigitalBookController::class, 'index']);
-
-    // 🔹 KONDISI TOOLS
+    // KONDISI (READ ONLY)
     Route::get('/kondisis', [KondisiController::class, 'index']);
     Route::get('/kondisis/{id}', [KondisiController::class, 'show']);
+
+    // OTHER DATA
+    Route::get('/consumables', [ConsumableController::class, 'index']);
+    Route::get('/digital-books', [DigitalBookController::class, 'index']);
 
     Route::get('/categories', function () {
         return \App\Models\Category::select('id','name')->get();
@@ -83,10 +86,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/my-history', [BorrowBookController::class, 'myHistory']);
 
 
-
     /*
     |--------------------------------------------------------------------------
-    | DASHBOARD (ALL LOGGED USERS)
+    | DASHBOARD
     |--------------------------------------------------------------------------
     */
 
@@ -99,7 +101,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     /*
     |--------------------------------------------------------------------------
-    | USER ACTION (GURU / MURID)
+    | USER (GURU / MURID)
     |--------------------------------------------------------------------------
     */
 
@@ -112,7 +114,6 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
 
-
     /*
     |--------------------------------------------------------------------------
     | ADMIN ONLY
@@ -123,7 +124,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
         /*
         |--------------------------------------------------------------------------
-        | CRUD MASTER DATA
+        | MASTER DATA CRUD
         |--------------------------------------------------------------------------
         */
 
@@ -133,7 +134,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::apiResource('digital-books', DigitalBookController::class)->except(['index']);
         Route::apiResource('users', UserController::class);
 
-        // 🔹 KONDISI CRUD (ADMIN)
+        // 🔥 KONDISI CRUD (PENTING)
         Route::apiResource('kondisis', KondisiController::class)->except(['index','show']);
 
 
@@ -181,7 +182,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/notifications', [NotificationController::class, 'index']);
         Route::post('/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
         Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
-
     });
 
 

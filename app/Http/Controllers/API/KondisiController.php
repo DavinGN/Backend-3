@@ -28,9 +28,7 @@ class KondisiController extends Controller
             'name' => 'required|string|max:100'
         ]);
 
-        $kondisi = Kondisi::create($data);
-
-        return response()->json($kondisi);
+        return Kondisi::create($data);
     }
 
     public function update(Request $request, $id)
@@ -43,7 +41,7 @@ class KondisiController extends Controller
 
         $kondisi->update($data);
 
-        return response()->json($kondisi);
+        return $kondisi;
     }
 
     public function destroy($id)
