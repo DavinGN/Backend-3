@@ -8,19 +8,24 @@ use Illuminate\Http\Request;
 
 class ToolController extends Controller
 {
-    // ================= INDEX =================
+
+    // ================= LIST TOOLS =================
     public function index(Request $request)
     {
-        $query = Tool::with(['category','kondisi']);
+        $query = Tool::with('kondisi');
 
         // SEARCH
         if ($request->search) {
+
             $search = $request->search;
 
             $query->where(function ($q) use ($search) {
+
                 $q->where('name', 'like', "%$search%")
                   ->orWhere('location', 'like', "%$search%");
+
             });
+
         }
 
         // FILTER STATUS
@@ -33,12 +38,13 @@ class ToolController extends Controller
         return response()->json($tools);
     }
 
-    // ================= STORE =================
+
+    // ================= CREATE TOOL =================
     public function store(Request $request)
     {
         $data = $request->validate([
-            'name' => 'required',
-            'location' => 'nullable',
+            'name' => 'required|string',
+            'location' => 'nullable|string',
             'status' => 'nullable|in:tersedia,pending,dipinjam',
             'kondisi_id' => 'nullable|exists:kondisis,id'
         ]);
@@ -46,23 +52,29 @@ class ToolController extends Controller
         $data['location'] = $data['location'] ?? '-';
         $data['status'] = $data['status'] ?? 'tersedia';
 
-        return Tool::create($data);
+        $tool = Tool::create($data);
+
+        return response()->json($tool);
     }
 
-    // ================= SHOW =================
+
+    // ================= DETAIL TOOL =================
     public function show($id)
     {
-        return Tool::with(['category','kondisi'])->findOrFail($id);
+        $tool = Tool::with('kondisi')->findOrFail($id);
+
+        return response()->json($tool);
     }
 
-    // ================= UPDATE =================
+
+    // ================= UPDATE TOOL =================
     public function update(Request $request, $id)
     {
         $tool = Tool::findOrFail($id);
 
         $data = $request->validate([
-            'name' => 'nullable',
-            'location' => 'nullable',
+            'name' => 'nullable|string',
+            'location' => 'nullable|string',
             'status' => 'nullable|in:tersedia,pending,dipinjam',
             'kondisi_id' => 'nullable|exists:kondisis,id'
         ]);
@@ -72,13 +84,17 @@ class ToolController extends Controller
         return response()->json($tool);
     }
 
-    // ================= DELETE =================
+
+    // ================= DELETE TOOL =================
     public function destroy($id)
     {
-        Tool::destroy($id);
+        $tool = Tool::findOrFail($id);
+
+        $tool->delete();
 
         return response()->json([
-            'message' => 'Deleted'
+            'message' => 'Tool deleted'
         ]);
     }
+
 }
