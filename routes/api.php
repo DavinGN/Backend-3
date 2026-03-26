@@ -14,6 +14,8 @@ use App\Http\Controllers\API\UserController;
 use App\Http\Controllers\API\NotificationController;
 use App\Http\Controllers\API\DashboardController;
 use App\Http\Controllers\API\FcmTokenController;
+use App\Http\Controllers\API\KondisiController;
+
 use App\Services\FcmService;
 
 /*
@@ -23,6 +25,7 @@ use App\Services\FcmService;
 */
 
 Route::post('/login', [AuthController::class, 'login']);
+
 Route::get('/test-fcm', function () {
 
     $tokens = \App\Models\FcmToken::where('is_active', true)
@@ -40,6 +43,7 @@ Route::get('/test-fcm', function () {
         'tokens_count' => count($tokens)
     ]);
 });
+
 
 /*
 |--------------------------------------------------------------------------
@@ -64,6 +68,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/consumables', [ConsumableController::class, 'index']);
     Route::get('/digital-books', [DigitalBookController::class, 'index']);
 
+    // 🔹 KONDISI TOOLS
+    Route::get('/kondisis', [KondisiController::class, 'index']);
+    Route::get('/kondisis/{id}', [KondisiController::class, 'show']);
+
     Route::get('/categories', function () {
         return \App\Models\Category::select('id','name')->get();
     });
@@ -73,7 +81,9 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     Route::get('/my-history', [BorrowBookController::class, 'myHistory']);
-    
+
+
+
     /*
     |--------------------------------------------------------------------------
     | DASHBOARD (ALL LOGGED USERS)
@@ -102,6 +112,7 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
 
+
     /*
     |--------------------------------------------------------------------------
     | ADMIN ONLY
@@ -110,47 +121,77 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::middleware('role:admin')->group(function () {
 
-        // ================= CRUD =================
+        /*
+        |--------------------------------------------------------------------------
+        | CRUD MASTER DATA
+        |--------------------------------------------------------------------------
+        */
+
         Route::apiResource('books', BookController::class)->except(['index','show']);
         Route::apiResource('tools', ToolController::class)->except(['index','show']);
         Route::apiResource('consumables', ConsumableController::class)->except(['index']);
         Route::apiResource('digital-books', DigitalBookController::class)->except(['index']);
         Route::apiResource('users', UserController::class);
 
-        // ================= BOOK APPROVAL =================
+        // 🔹 KONDISI CRUD (ADMIN)
+        Route::apiResource('kondisis', KondisiController::class)->except(['index','show']);
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | BOOK APPROVAL
+        |--------------------------------------------------------------------------
+        */
+
         Route::get('/borrow-books', [BorrowBookController::class, 'index']);
         Route::post('/borrow-books/{id}/approve', [BorrowBookController::class, 'approve']);
         Route::post('/borrow-books/{id}/reject', [BorrowBookController::class, 'reject']);
         Route::post('/borrow-books/{id}/return', [BorrowBookController::class, 'returnBook']);
 
-        // ================= TOOL APPROVAL =================
+
+        /*
+        |--------------------------------------------------------------------------
+        | TOOL APPROVAL
+        |--------------------------------------------------------------------------
+        */
+
         Route::get('/borrow-tools', [BorrowToolController::class, 'index']);
         Route::post('/borrow-tools/{id}/approve', [BorrowToolController::class, 'approve']);
         Route::post('/borrow-tools/{id}/reject', [BorrowToolController::class, 'reject']);
         Route::post('/borrow-tools/{id}/return', [BorrowToolController::class, 'returnTool']);
 
-        // ================= CONSUMABLE APPROVAL =================
+
+        /*
+        |--------------------------------------------------------------------------
+        | CONSUMABLE APPROVAL
+        |--------------------------------------------------------------------------
+        */
+
         Route::get('/consumable-requests', [ConsumableRequestController::class, 'index']);
         Route::post('/consumable-requests/{id}/approve', [ConsumableRequestController::class, 'approve']);
         Route::post('/consumable-requests/{id}/reject', [ConsumableRequestController::class, 'reject']);
 
-        // ================= NOTIFICATIONS =================
+
+        /*
+        |--------------------------------------------------------------------------
+        | NOTIFICATIONS
+        |--------------------------------------------------------------------------
+        */
+
         Route::get('/notifications', [NotificationController::class, 'index']);
         Route::post('/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
         Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
+
     });
 
-    // Route::get('/test-fcm', function(){
 
-    //     \App\Services\FcmService::sendToTokens(
-    //         ['d245XJwiTIWQD00_EZmtVz:APA91bF9f4m-3iUa4RJhDmS4s31mxWs8gtEWQqkhMo4fRkayy-TGeYImcbyMDuR0wEhlArooMcCcA1xNc9_OuXDzDOf98ODDire_sPjWsKt3HcE2KAQAU4I'],
-    //         'Test Notification',
-    //         'Hello from Railway'
-    //     );
+    /*
+    |--------------------------------------------------------------------------
+    | FCM TOKEN
+    |--------------------------------------------------------------------------
+    */
 
-    //     return 'sent';
-    // });
-    
     Route::post('/fcm-token', [FcmTokenController::class,'store']);
     Route::post('/fcm-token/deactivate', [FcmTokenController::class,'deactivate']);
+
 });

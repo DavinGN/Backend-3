@@ -11,9 +11,9 @@ class ToolController extends Controller
     // ================= INDEX =================
     public function index(Request $request)
     {
-        $query = Tool::with('category');
+        $query = Tool::with(['category','kondisi']);
 
-        // 🔍 SEARCH
+        // SEARCH
         if ($request->search) {
             $search = $request->search;
 
@@ -23,7 +23,7 @@ class ToolController extends Controller
             });
         }
 
-        // 🔥 FILTER STATUS
+        // FILTER STATUS
         if ($request->status && $request->status !== 'all') {
             $query->where('status', $request->status);
         }
@@ -39,10 +39,10 @@ class ToolController extends Controller
         $data = $request->validate([
             'name' => 'required',
             'location' => 'nullable',
-            'status' => 'nullable|in:tersedia,pending,dipinjam'
+            'status' => 'nullable|in:tersedia,pending,dipinjam',
+            'kondisi_id' => 'nullable|exists:kondisis,id'
         ]);
 
-        // DEFAULT VALUE
         $data['location'] = $data['location'] ?? '-';
         $data['status'] = $data['status'] ?? 'tersedia';
 
@@ -52,7 +52,7 @@ class ToolController extends Controller
     // ================= SHOW =================
     public function show($id)
     {
-        return Tool::with('category')->findOrFail($id);
+        return Tool::with(['category','kondisi'])->findOrFail($id);
     }
 
     // ================= UPDATE =================
@@ -63,7 +63,8 @@ class ToolController extends Controller
         $data = $request->validate([
             'name' => 'nullable',
             'location' => 'nullable',
-            'status' => 'nullable|in:tersedia,pending,dipinjam'
+            'status' => 'nullable|in:tersedia,pending,dipinjam',
+            'kondisi_id' => 'nullable|exists:kondisis,id'
         ]);
 
         $tool->update($data);
@@ -75,6 +76,9 @@ class ToolController extends Controller
     public function destroy($id)
     {
         Tool::destroy($id);
-        return response()->json(['message' => 'Deleted']);
+
+        return response()->json([
+            'message' => 'Deleted'
+        ]);
     }
 }
