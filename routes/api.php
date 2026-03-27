@@ -184,6 +184,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
 
         Route::post('/notifications/send', [NotificationController::class, 'sendToUser']);
+        Route::post('/notifications/borrow-note', [NotificationController::class, 'sendBorrowNote']);
     });
 
 

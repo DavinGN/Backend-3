@@ -4,6 +4,7 @@ namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use App\Models\Notification;
+use Illuminate\Http\Request;
 
 class NotificationController extends Controller
 {
@@ -66,6 +67,48 @@ class NotificationController extends Controller
             \App\Services\FcmService::sendToUser(
                 $request->user_id,
                 '📢 Pesan dari Admin',
+                $request->message
+            );
+        } catch (\Exception $e) {
+            \Log::error($e->getMessage());
+        }
+
+        return response()->json([
+            'message' => 'Notification sent'
+        ]);
+    }
+
+    public function sendBorrowNote(Request $request)
+    {
+        $request->validate([
+            'borrow_id' => 'required|integer',
+            'type' => 'required|in:book,tool',
+            'message' => 'required|string'
+        ]);
+
+        if ($request->type === 'book') {
+            $borrow = \App\Models\BorrowBook::findOrFail($request->borrow_id);
+        } else {
+            $borrow = \App\Models\BorrowTool::findOrFail($request->borrow_id);
+        }
+
+        // 🔥 VALIDASI STATUS
+        if ($borrow->status !== 'approved') {
+            return response()->json([
+                'message' => 'Hanya bisa kirim ke yang sedang dipinjam'
+            ], 400);
+        }
+
+        Notification::create([
+            'user_id' => $borrow->user_id,
+            'message' => $request->message,
+            'is_read' => false
+        ]);
+
+        try {
+            \App\Services\FcmService::sendToUser(
+                $borrow->user_id,
+                '📢 Informasi Peminjaman',
                 $request->message
             );
         } catch (\Exception $e) {
